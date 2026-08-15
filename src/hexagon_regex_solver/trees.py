@@ -113,9 +113,6 @@ def get_equations(regex, slots):
         if simple_length(tree, {}) == len(slots):
             good_simple_trees.append(tree)
 
-    # for each capture, we need to store (start, end)
-    capture_slots = {}
-
     def equations(regex_tree, captures, locations, i):
         if type(regex_tree) == SubPattern:
             conds = []
