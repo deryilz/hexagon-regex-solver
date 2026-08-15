@@ -7,7 +7,7 @@ import re._constants as c
 # some features aren't supported yet, including nested captures - they'd definitely break this
 # feel free to open a pull request if you think anything's missing
 
-# takes a regex and generates regexes that only deal with single slots
+# takes a variable-length regex and generates regexes whose lengths are known
 # essentially expands all *, +, ? operations as well as |
 # doesn't touch [] or . or \1 etc
 def get_simpler_trees(regex_tree, limit, captures):
