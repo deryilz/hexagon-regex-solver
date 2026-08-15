@@ -1,0 +1,17 @@
+[project]
+name = "hexagon-regex-solver"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+authors = []
+requires-python = ">=3.12"
+dependencies = [
+    "z3-solver>=5.0.0.0",
+]
+
+[project.scripts]
+hexagon-regex-solver = "hexagon_regex_solver:main"
+
+[build-system]
+requires = ["uv_build>=0.12.3,<0.13.0"]
+build-backend = "uv_build"
