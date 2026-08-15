@@ -37,8 +37,7 @@ def get_simpler_trees(regex_tree, limit, captures):
 
         case c.BRANCH:
             for option in value[1]:
-                for tree in get_simpler_trees(option, limit, captures.copy()):
-                    yield tree
+                yield from get_simpler_trees(option, limit, captures.copy()):
 
         case c.GROUPREF:
             if simple_length(captures[value], captures) <= limit:
