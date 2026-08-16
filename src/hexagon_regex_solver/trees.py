@@ -9,9 +9,9 @@ def get_simpler_nodes(regex_node, limit, groups):
             yield regex_node
 
         case SubPattern(data):
-            rest = SubPattern(data[1:])
             for node in get_simpler_nodes(data[0], limit, groups):
                 length = simple_length(node, groups)
+                rest = SubPattern(data[1:])
                 for seq in get_simpler_nodes(rest, limit - length, groups.copy()):
                     full = SubPattern([node] + seq.data)
                     yield full
