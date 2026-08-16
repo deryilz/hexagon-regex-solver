@@ -1,6 +1,6 @@
 from z3 import *
 
-from . import trees, hexagon
+from . import trees, hexagon, parse
 
 regexes = {
     "a": [
@@ -54,6 +54,9 @@ def main():
     puzzle = hexagon.HexCrossword(lambda r, c: Int(f"{r}-{c}"))
 
     s = Solver()
+
+    # print(trees.get_equations(regexes["a"][2], puzzle.get_line("a", 2)))
+    # return
 
     for axis in regexes.keys():
         for i, regex in enumerate(regexes[axis]):

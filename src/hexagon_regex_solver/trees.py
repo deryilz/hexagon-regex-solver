@@ -1,153 +1,144 @@
-# specific to python 3.12, might break but im too LAZY to fix
-# if anyone knows an actual regex parser please open a pull request
-from re._parser import parse, SubPattern
-import re._constants as c
-
-# this whole module is about simplifying regexes into equations
-# some features aren't supported yet, including nested captures - they'd definitely break this
-# feel free to open a pull request if you think anything's missing
+from .parse import *
 
 # takes a variable-length regex and generates regexes whose lengths are known
 # essentially expands all *, +, ? operations as well as |
 # doesn't touch [] or . or \1 etc
-def get_simpler_trees(regex_tree, limit, captures):
-    if type(regex_tree) == SubPattern:
-        if len(regex_tree.data) == 0:
-            yield regex_tree
+def get_simpler_nodes(regex_node, limit, groups):
+    match regex_node:
+        case SubPattern(data):
+            if len(data) == 0:
+                yield regex_node
+                return
+
+            rest = SubPattern(data[1:])
+            for node in get_simpler_nodes(data[0], limit, groups):
+                length = simple_length(node, groups)
+                for seq in get_simpler_nodes(rest, limit - length, groups.copy()):
+                    full = SubPattern([node] + seq.data)
+                    yield full
             return
 
-        rest = SubPattern(None, regex_tree.data[1:])
-        for tree in get_simpler_trees(regex_tree.data[0], limit, captures):
-            length = simple_length(tree, captures)
-            for seq in get_simpler_trees(rest, limit - length, captures.copy()):
-                full = SubPattern(None, [tree] + seq.data)
-                yield full
-        return
-
-    token, value = regex_tree
-    match token:
-        case c.LITERAL | c.NOT_LITERAL | c.ANY | c.IN:
+        case Literal() | AnyChar() | Range() | CharClass():
             if limit >= 1:
-                yield regex_tree
+                yield regex_node
 
-        case c.SUBPATTERN if value[0] is not None:
-            for tree in get_simpler_trees(value[-1], limit, captures):
-                captures[value[0]] = tree
-                yield [token, value[:-1] + (tree,)] # wrap it up
+        case Group(group_id, content):
+            for node in get_simpler_nodes(content, limit, groups):
+                groups[group_id] = node
+                yield Group(group_id, node) # wrap it up
 
-        case c.BRANCH:
-            for option in value[1]:
-                yield from get_simpler_trees(option, limit, captures.copy())
+        case GroupRef(group_id):
+            if simple_length(groups[group_id], groups) <= limit:
+                yield regex_node
 
-        case c.GROUPREF:
-            if simple_length(captures[value], captures) <= limit:
-                yield regex_tree
+        case Branch(options):
+            for option in options:
+                yield from get_simpler_nodes(option, limit, groups.copy())
 
-        case c.MAX_REPEAT | c.MIN_REPEAT:
-            lower, upper, subvalue = value
-
+        case Repeat(lower, upper, subvalue):
             if type(upper) != int or upper > limit:
                 upper = limit
 
             for i in range(lower, upper + 1):
-                pattern = SubPattern(None, subvalue.data * i)
-                yield from get_simpler_trees(pattern, limit, captures.copy())
+                pattern = SubPattern(subvalue.data * i)
+                yield from get_simpler_nodes(pattern, limit, groups.copy())
 
         case _:
-            raise Exception(f"Unexpected regex type {token}")
+            raise Exception(f"Unexpected regex type {regex_node}")
 
-# length of a simplified tree, or None if the tree isn't simplified
-def simple_length(regex_tree, captures):
-    if type(regex_tree) == SubPattern:
-        length = 0
-        for part in regex_tree.data:
-            part_length = simple_length(part, captures)
-            if part_length is None:
-                return None
-            else:
-                length += part_length
-        return length
+# length of a simplified node, or None if the node isn't simplified
+def simple_length(regex_node, groups):
+    match regex_node:
+        case SubPattern(data):
+            length = 0
+            for part in data:
+                part_length = simple_length(part, groups)
+                if part_length is None:
+                    return None
+                else:
+                    length += part_length
+            return length
 
-    token, value = regex_tree
-    match token:
-        case c.LITERAL | c.NOT_LITERAL | c.ANY | c.IN:
+        case Literal() | AnyChar() | Range() | CharClass():
             return 1
-        case c.SUBPATTERN if value[0] is not None:
-            captures[value[0]] = value[-1]
-            return simple_length(value[-1], captures)
-        case c.GROUPREF:
-            return simple_length(captures[value], captures)
-        case c.BRANCH | c.MAX_REPEAT | c.MIN_REPEAT:
+
+        case Group(group_id, content):
+            groups[group_id] = content
+            return simple_length(content, groups)
+
+        case GroupRef(group_id):
+            return simple_length(groups[group_id], groups)
+
+        case Branch() | Repeat():
             return None
+
         case _:
-            raise Exception(f"Unexpected regex type {token}")
+            raise Exception(f"Unexpected regex type {regex_node}")
 
-def show_simple(regex_tree, captures):
-    if type(regex_tree) == SubPattern:
-        return "".join(show_simple(part, captures) for part in regex_tree.data)
-
-    token, value = regex_tree
-    match token:
-        case c.LITERAL:
-            return chr(value)
-        case c.NOT_LITERAL:
-            return "^" # TODO
-        case c.ANY:
+def show_simple(regex_node, groups):
+    match regex_node:
+        case SubPattern(data):
+            return "".join(show_simple(part, groups) for part in data)
+        case Literal(char_code):
+            return chr(char_code)
+        case AnyChar():
             return "."
-        case c.IN:
+        case Range():
             return "?" # TODO
-        case c.SUBPATTERN if value[0] is not None:
-            captures[value[0]] = value[-1]
-            return show_simple(value[-1], captures)
-        case c.GROUPREF:
-            return show_simple(captures[value], captures)
+        case CharClass(items, negated):
+            return "?" if not negated else "^" # TODO
+        case Group(group_id, content):
+            groups[group_id] = content
+            return show_simple(content, groups)
+        case GroupRef(group_id):
+            return show_simple(groups[group_id], groups)
         case _:
-            raise Exception(f"Expected simplified regex but got {token}")
+            raise Exception(f"Expected simplified regex but got {regex_node}")
 
 def get_equations(regex, slots):
     from z3 import And, Or, Not
 
-    good_simple_trees = []
-    for tree in get_simpler_trees(parse(regex), len(slots), {}):
-        if simple_length(tree, {}) == len(slots):
-            good_simple_trees.append(tree)
+    good_simple_nodes = []
+    for node in get_simpler_nodes(parse(regex), len(slots), {}):
+        if simple_length(node, {}) == len(slots):
+            good_simple_nodes.append(node)
 
-    def equations(regex_tree, captures, locations, i):
-        if type(regex_tree) == SubPattern:
-            conds = []
-            for tree in regex_tree.data:
-                conds.append(equations(tree, captures, locations, i))
-                i += simple_length(tree, captures)
-            return And(conds) if conds else True
+    def equations(regex_node, groups, locations, i):
+        match regex_node:
+            case SubPattern(data):
+                conds = []
+                for node in data:
+                    conds.append(equations(node, groups, locations, i))
+                    i += simple_length(node, groups)
+                return And(conds) if conds else True
 
-        token, value = regex_tree
-        match token:
-            case c.LITERAL:
-                return slots[i] == value
-            case c.NOT_LITERAL:
-                return slots[i] != value
-            case c.ANY:
+            case Literal(char_code):
+                return slots[i] == char_code
+
+            case AnyChar():
                 return True
-            case c.IN:
-                normal = [tree for tree in value if tree[0] != c.NEGATE]
-                is_negated = len(normal) != len(value)
-                eq = Or(equations(option, captures, locations, i) for option in normal)
-                return Not(eq) if is_negated else eq
-            case c.RANGE:
-                low, high = value
-                return And(slots[i] >= low, slots[i] <= high)
-            case c.SUBPATTERN if value[0] is not None:
-                captures[value[0]] = value[-1]
-                locations[value[0]] = i
-                return equations(value[-1], captures, locations, i)
-            case c.GROUPREF:
-                start = locations[value]
-                length = simple_length(captures[value], captures)
-                return And(slots[start+o] == slots[i+o] for o in range(length))
-            case _:
-                raise Exception(f"Expected simplified regex but got {token}")
 
-    eqs = [Or(equations(tree, {}, {}, 0) for tree in good_simple_trees)]
+            case Range(low, high):
+                return And(slots[i] >= low, slots[i] <= high)
+
+            case CharClass(items, negated):
+                eq = Or(equations(item, groups, locations, i) for item in items)
+                return Not(eq) if negated else eq
+
+            case Group(group_id, content):
+                groups[group_id] = content
+                locations[group_id] = i
+                return equations(content, groups, locations, i)
+
+            case GroupRef(group_id):
+                start = locations[group_id]
+                length = simple_length(groups[group_id], groups)
+                return And(slots[start+o] == slots[i+o] for o in range(length))
+
+            case _:
+                raise Exception(f"Expected simplified regex but got {regex_node}")
+
+    eqs = [Or(equations(node, {}, {}, 0) for node in good_simple_nodes)]
     for slot in slots:
         eqs.append(ord("A") <= slot)
         eqs.append(slot <= ord("Z"))
