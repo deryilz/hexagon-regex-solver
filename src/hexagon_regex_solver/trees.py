@@ -5,11 +5,10 @@ from .parse import *
 # doesn't touch [] or . or \1 etc
 def get_simpler_nodes(regex_node, limit, groups):
     match regex_node:
-        case SubPattern(data):
-            if len(data) == 0:
-                yield regex_node
-                return
+        case SubPattern([]):
+            yield regex_node
 
+        case SubPattern(data):
             rest = SubPattern(data[1:])
             for node in get_simpler_nodes(data[0], limit, groups):
                 length = simple_length(node, groups)
