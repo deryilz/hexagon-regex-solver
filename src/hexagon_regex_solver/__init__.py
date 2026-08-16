@@ -55,9 +55,6 @@ def main():
 
     s = Solver()
 
-    # print(trees.get_equations(regexes["a"][2], puzzle.get_line("a", 2)))
-    # return
-
     for axis in regexes.keys():
         for i, regex in enumerate(regexes[axis]):
             variables = puzzle.get_line(axis, i)
