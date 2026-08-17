@@ -13,7 +13,7 @@ def get_simpler_nodes(regex_node, limit, groups):
                 length = simple_length(node, groups)
                 rest = SubPattern(data[1:])
                 for seq in get_simpler_nodes(rest, limit - length, groups.copy()):
-                    full = SubPattern([node] + seq.data)
+                    full = SubPattern([node, *seq.data])
                     yield full
             return
 
@@ -121,7 +121,7 @@ def get_equations(regex, slots):
                 return And(slots[i] >= low, slots[i] <= high)
 
             case CharClass(items, negated):
-                eq = Or(equations(item, groups, locations, i) for item in items)
+                eq = Or([equations(item, groups, locations, i) for item in items])
                 return Not(eq) if negated else eq
 
             case Group(group_id, content):
@@ -132,12 +132,12 @@ def get_equations(regex, slots):
             case GroupRef(group_id):
                 start = locations[group_id]
                 length = simple_length(groups[group_id], groups)
-                return And(slots[start+o] == slots[i+o] for o in range(length))
+                return And([slots[start+o] == slots[i+o] for o in range(length)])
 
             case _:
                 raise Exception(f"Expected simplified regex but got {regex_node}")
 
-    eqs = [Or(equations(node, {}, {}, 0) for node in good_simple_nodes)]
+    eqs = [Or([equations(node, {}, {}, 0) for node in good_simple_nodes])]
     for slot in slots:
         eqs.append(ord("A") <= slot)
         eqs.append(slot <= ord("Z"))
