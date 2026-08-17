@@ -18,7 +18,7 @@ regexes = {
         r".*LR.*RL.*",
         r".*SE.*UE.*"
     ],
-"b": [
+    "b": [
         r"(S|MM|HHH)*",
         r"[^M]*M[^M]*",
         r"(RX|[^R])*",
