@@ -51,15 +51,23 @@ regexes = {
 }
 
 def main():
-    puzzle = hexagon.HexCrossword(lambda r, c: Int(f"{r}-{c}"))
-
     s = Solver()
+
+    def default(r, c):
+        var = Int(f"{r}-{c}")
+        s.add(ord("A") <= var)
+        s.add(var <= ord("Z"))
+        return var
+
+    puzzle = hexagon.HexCrossword(default)
 
     for axis in regexes.keys():
         for i, regex in enumerate(regexes[axis]):
             variables = puzzle.get_line(axis, i)
 
             def count_nodes(expr):
+                if not z3.is_expr(expr) or expr.num_args() == 0:
+                    return 0
                 return 1 + sum(count_nodes(child) for child in expr.children())
 
             eq = simplify(trees.get_equations(regex, variables))

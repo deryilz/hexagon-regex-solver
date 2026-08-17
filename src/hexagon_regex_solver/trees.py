@@ -137,8 +137,4 @@ def get_equations(regex, slots):
             case _:
                 raise Exception(f"Expected simplified regex but got {regex_node}")
 
-    eqs = [Or([equations(node, {}, {}, 0) for node in good_simple_nodes])]
-    for slot in slots:
-        eqs.append(ord("A") <= slot)
-        eqs.append(slot <= ord("Z"))
-    return And(eqs)
+    return Or([equations(node, {}, {}, 0) for node in good_simple_nodes])
