@@ -44,6 +44,10 @@ def get_simpler_nodes(regex_node, limit, groups):
                 yield value[0] if len(value) == 1 else Branch(value)
 
         case Repeat(lower, upper, subvalue):
+            length = simple_length(subvalue, groups)
+            if lower == upper and length is not None:
+                yield regex_node
+                return
             if upper is None or upper > limit:
                 upper = limit
             for i in range(lower, upper + 1):
@@ -53,7 +57,7 @@ def get_simpler_nodes(regex_node, limit, groups):
         case _:
             raise Exception(f"Unexpected Regex {regex_node}")
 
-# length of a simplified node, or None if the node isn't simplified
+# fixed length of a regex if it has one
 def simple_length(regex_node, groups):
     match regex_node:
         case SubPattern(parts):
@@ -86,8 +90,13 @@ def simple_length(regex_node, groups):
                     return
             return size
 
-        case Repeat():
-            return None
+        case Repeat(upper, lower, subvalue):
+            if upper != lower:
+                return None
+            length = simple_length(subvalue, groups)
+            if length is None:
+                return None
+            return lower * length
 
         case _:
             raise Exception(f"Unexpected Regex {regex_node}")
@@ -135,7 +144,11 @@ def get_equations(regex, slots):
             case Branch(options) if simple_length(regex_node, groups) is not None:
                 return Or([equations(option, groups, locations, i) for option in options])
 
+            case Repeat(lower, upper, subvalue) if simple_length(regex_node, groups) is not None:
+                length = simple_length(subvalue, groups)
+                return And([equations(subvalue, groups, locations, i + o*length) for o in range(lower)])
+
             case _:
-                raise Exception(f"Expected simplified regex but got {regex_node}")
+                raise Exception(f"Unexpected Regex {regex_node}")
 
     return Or([equations(node, {}, {}, 0) for node in good_simple_nodes])

@@ -49,7 +49,7 @@ class RegexNode:
                     return f"{subvalue}{{{lower},}}"
 
             case _:
-                raise Exception(f"Unexpected Regex {regex_node}")
+                raise Exception(f"Unexpected Regex {self}")
 
 @dataclass
 class Literal(RegexNode):
@@ -90,7 +90,7 @@ class GroupRef(RegexNode):
 class Repeat(RegexNode):
     lower: int
     upper: int | None
-    subvalue: SubPattern
+    subvalue: RegexNode
 
 REGEX_GRAMMAR = r"""
 ?start: regex
