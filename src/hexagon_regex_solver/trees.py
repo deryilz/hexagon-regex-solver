@@ -11,6 +11,8 @@ def get_simpler_nodes(regex_node, limit, groups):
         case SubPattern(parts):
             for node in get_simpler_nodes(parts[0], limit, groups):
                 length = simple_length(node, groups)
+                if length is None:
+                    print(node)
                 rest = SubPattern(parts[1:])
                 for seq in get_simpler_nodes(rest, limit - length, groups):
                     full = SubPattern([node, *seq.parts])
@@ -40,8 +42,8 @@ def get_simpler_nodes(regex_node, limit, groups):
                     if length not in sized_options:
                         sized_options[length] = []
                     sized_options[length].append(option)
-            for key in sized_options:
-                yield Branch(sized_options[key])
+            for value in sized_options.values():
+                yield value[0] if len(value) == 1 else Branch(value)
 
         case Repeat(lower, upper, subvalue):
             if upper is None or upper > limit:
@@ -49,6 +51,9 @@ def get_simpler_nodes(regex_node, limit, groups):
             for i in range(lower, upper + 1):
                 pattern = SubPattern([subvalue] * i)
                 yield from get_simpler_nodes(pattern, limit, groups)
+
+        case _:
+            raise Exception(f"Unexpected Regex {regex_node}")
 
 # length of a simplified node, or None if the node isn't simplified
 def simple_length(regex_node, groups):
@@ -85,6 +90,9 @@ def simple_length(regex_node, groups):
 
         case Repeat():
             return None
+
+        case _:
+            raise Exception(f"Unexpected Regex {regex_node}")
 
 def get_equations(regex, slots):
     from z3 import And, Or, Not

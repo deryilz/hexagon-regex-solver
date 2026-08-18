@@ -48,6 +48,9 @@ class RegexNode:
                 else:
                     return f"{subvalue}{{{lower},}}"
 
+            case _:
+                raise Exception(f"Unexpected Regex {regex_node}")
+
 @dataclass
 class Literal(RegexNode):
     char_code: int
