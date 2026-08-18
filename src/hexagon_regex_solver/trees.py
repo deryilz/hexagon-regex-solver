@@ -11,8 +11,6 @@ def get_simpler_nodes(regex_node, limit, groups):
         case SubPattern(parts):
             for node in get_simpler_nodes(parts[0], limit, groups):
                 length = simple_length(node, groups)
-                if length is None:
-                    print(node)
                 rest = SubPattern(parts[1:])
                 for seq in get_simpler_nodes(rest, limit - length, groups):
                     full = SubPattern([node, *seq.parts])
