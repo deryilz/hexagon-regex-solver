@@ -46,7 +46,8 @@ def get_simpler_nodes(regex_node, limit, groups):
         case Repeat(lower, upper, subvalue):
             length = simple_length(subvalue, groups)
             if lower == upper and length is not None:
-                yield regex_node
+                if length <= limit:
+                    yield regex_node
                 return
             if upper is None or upper > limit:
                 upper = limit
@@ -147,7 +148,7 @@ def get_equations(regex, slots):
             # at this point we know (lower == upper) and that subvalue has a length
             case Repeat(lower, upper, subvalue):
                 l = simple_length(subvalue, groups)
-                return And([equations(subvalue, groups, locations, i + o*l) for o in range(lower)])
+                return And([equations(subvalue, groups, locations, i+o*l) for o in range(lower)])
 
             case _:
                 raise Exception(f"Unexpected Regex {regex_node}")
