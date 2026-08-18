@@ -83,7 +83,7 @@ def main():
         # c is the originally horizontal axis
         print()
         for i, regex in enumerate(regexes["c"]):
-            variables = puzzle.get_line(axis, i)
+            variables = puzzle.get_line("c", i)
             padding = " " * (20 - puzzle.row_len(i))
             line = " ".join(chr(model[v].as_long()) for v in variables)
             print(padding + line)
