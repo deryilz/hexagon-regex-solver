@@ -141,12 +141,13 @@ def get_equations(regex, slots):
                 length = simple_length(groups[group_id], groups)
                 return And([slots[start+o] == slots[i+o] for o in range(length)])
 
-            case Branch(options) if simple_length(regex_node, groups) is not None:
+            case Branch(options):
                 return Or([equations(option, groups, locations, i) for option in options])
 
-            case Repeat(lower, upper, subvalue) if simple_length(regex_node, groups) is not None:
-                length = simple_length(subvalue, groups)
-                return And([equations(subvalue, groups, locations, i + o*length) for o in range(lower)])
+            # at this point we know (lower == upper) and that subvalue has a length
+            case Repeat(lower, upper, subvalue):
+                l = simple_length(subvalue, groups)
+                return And([equations(subvalue, groups, locations, i + o*l) for o in range(lower)])
 
             case _:
                 raise Exception(f"Unexpected Regex {regex_node}")
