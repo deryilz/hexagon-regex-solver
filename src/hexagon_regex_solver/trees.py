@@ -91,7 +91,7 @@ def simple_length(regex_node, groups):
                     return
             return size
 
-        case Repeat(upper, lower, subvalue):
+        case Repeat(lower, upper, subvalue):
             if upper != lower:
                 return None
             length = simple_length(subvalue, groups)
